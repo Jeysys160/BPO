@@ -1,0 +1,204 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: WorkSpaces Poc
+
+
+
+Parameters:
+  EnvironmentName:
+    Description: Nombre para el proyecto
+    Type: String
+
+  VpcCIDR:
+    Description: Por favor ingrese un rango de IP para esta VPC
+    Default: 10.0.0.0/16
+    Type: String
+
+  PublicSubnet1CIDR:
+    Description: Por favor ingrese el rango de IP para la 1 subred publica
+    Type: String
+    Default: 10.0.0.0/24
+
+  PrivateSubnet1CIDR:
+    Description: Por faovr ingrese el rango de IP parala 2 subred privada
+    Type: String
+    Default: 10.0.1.0/24
+
+  PrivateSubnet2CIDR:
+    Description: Por faovr ingrese el rango de IP parala 2 subred privada
+    Type: String
+    Default: 10.0.2.0/24
+
+  AdminPassword:
+    Description: Password para el usuario administrador del Simple AD
+    Type: String
+    NoEcho: true
+  
+  DirectoryName:
+    Description: Nombre de Dominio para el Simple AD
+    Type: String
+    Default: poc.bpo.com
+  
+  Bundle:
+    Description: Bundle ID para el WorkSpaces
+    Type: String
+    Default: wsb-6cbvhvv9f
+
+  UserName:
+    Description: Usuario para el WorkSpaces
+    Type: String
+
+  
+
+Resources: 
+#------------------------------------ RED -----------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet 1
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs '']
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet 1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs '']
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet 2
+#-----------------------------------------------------------------------------------------
+
+#---------------------------- INTERNET GATEWAY ------------------------------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} ITGW
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------- NAT GATEWAY -------------------------------------------
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+#-----------------------------------------------------------------------------------------
+
+#------------------------------ Route Tables --------------------------------------------
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} - Public Route Table
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1TableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} - Private Route Table
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1TableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2TableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+# ---------------------------------------------------------------------------
+
+# ---------------------------- SIMPLE AD -------------------------------------
+  SimpleAD:
+    Type: AWS::DirectoryService::SimpleAD
+    Properties:
+      Name: !Ref DirectoryName
+      Password: !Ref AdminPassword
+      Size: Small
+      VpcSettings:
+        VpcId: !Ref VPC
+        SubnetIds: 
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+
+# -----------------------------------------------------------------------------
+
+# ------------------------------------ WORKSPACE-------------------------------
+Workspace1:
+  Type: AWS::WorkSpaces::Workspace
+  Properties: 
+    BundleId: !Ref Bundle
+    DirectoryId: !Ref SimpleAD
+    UserName: !Ref UserName
+    WorkspaceProperties:
+      ComputeTypeName: VALUE
+      RootVolumeSizeGib: 80
+      RunningMode: AUTO_STOP
+      RunningModeAutoStopTimeoutInMinutes: 60
+      UserVolumeSizeGib: 10
+
+#-----------------------------------------------------------------------------
