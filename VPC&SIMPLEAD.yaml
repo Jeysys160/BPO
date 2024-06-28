@@ -183,8 +183,3 @@ Outputs:
     Export:
       Name: 
         Fn::Sub: "${EnvironmentName}-SimpleADId"
-
-#Jlp](46bab28
-#poc.admin
-#jeyson.duque
-#Ironmaiden1234#
