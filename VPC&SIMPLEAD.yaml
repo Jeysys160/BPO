@@ -1,30 +1,28 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: WorkSpaces Poc
 
-
-
 Parameters:
   EnvironmentName:
     Description: Nombre para el proyecto
     Type: String
 
   VpcCIDR:
-    Description: Por favor ingrese un rango de IP para esta VPC
+    Description: Ingrese un rango de IP para esta VPC
     Default: 10.0.0.0/16
     Type: String
 
   PublicSubnet1CIDR:
-    Description: Por favor ingrese el rango de IP para la 1 subred publica
+    Description: Ingrese el rango de IP para la 1 subred publica
     Type: String
     Default: 10.0.0.0/24
 
   PrivateSubnet1CIDR:
-    Description: Por faovr ingrese el rango de IP parala 2 subred privada
+    Description: Ingrese el rango de IP parala 2 subred privada
     Type: String
     Default: 10.0.1.0/24
 
   PrivateSubnet2CIDR:
-    Description: Por faovr ingrese el rango de IP parala 2 subred privada
+    Description: Ingrese el rango de IP parala 2 subred privada
     Type: String
     Default: 10.0.2.0/24
 
@@ -37,16 +35,6 @@ Parameters:
     Description: Nombre de Dominio para el Simple AD
     Type: String
     Default: poc.bpo.com
-  
-  Bundle:
-    Description: Bundle ID para el WorkSpaces
-    Type: String
-    Default: wsb-6cbvhvv9f
-
-  UserName:
-    Description: Usuario para el WorkSpaces
-    Type: String
-
   
 
 Resources: 
@@ -187,18 +175,16 @@ Resources:
 
 # -----------------------------------------------------------------------------
 
-# ------------------------------------ WORKSPACE-------------------------------
-Workspace1:
-  Type: AWS::WorkSpaces::Workspace
-  Properties: 
-    BundleId: !Ref Bundle
-    DirectoryId: !Ref SimpleAD
-    UserName: !Ref UserName
-    WorkspaceProperties:
-      ComputeTypeName: VALUE
-      RootVolumeSizeGib: 80
-      RunningMode: AUTO_STOP
-      RunningModeAutoStopTimeoutInMinutes: 60
-      UserVolumeSizeGib: 10
+Outputs:
+  SimpleAdId:
+    Description: El ID del simple AD
+    Value: 
+      Ref: SimpleAD
+    Export:
+      Name: 
+        Fn::Sub: "${EnvironmentName}-SimpleADId"
 
-#-----------------------------------------------------------------------------
+#Jlp](46bab28
+#poc.admin
+#jeyson.duque
+#Ironmaiden1234#
